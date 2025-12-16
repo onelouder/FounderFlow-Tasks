@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Founder Flow Spotlight</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bg0: '#0b0f14',
+                        bg1: '#0f1620',
+                        bg2: '#131c28',
+                        border0: 'rgba(255,255,255,0.06)',
+                        border1: 'rgba(255,255,255,0.10)',
+                        text0: 'rgba(255,255,255,0.90)',
+                        text1: 'rgba(255,255,255,0.65)',
+                        text2: 'rgba(255,255,255,0.45)',
+                        accent: '#4ea1ff',
+                        warning: '#f0b429',
+                        danger: '#ff5c5c',
+                        success: '#35d07f',
+                        info: '#6ea8ff',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+                    },
+                    fontSize: {
+                        'xs': '11px',
+                        'sm': '11px', /* Remap sm to 11px to force density */
+                        'base': '11px', /* Remap base to 11px */
+                        'lg': '12px',
+                        'xl': '13px',
+                        '2xl': '14px',
+                    },
+                    spacing: {
+                        'row': '19px', /* 17px + 2px border/margin buffer for comfortable click */
+                        'row-dense': '17px',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #0b0f14;
+            color: rgba(255,255,255,0.90);
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 11px;
+            line-height: 1;
+            overflow: hidden; 
+        }
+        /* Custom scrollbar for IDE feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f1620; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155; 
+        }
+        
+        /* Utility for Kbd look */
+        kbd {
+            background: #131c28;
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 2px;
+            padding: 0 2px;
+            font-family: 'JetBrains Mono', monospace;
+            color: rgba(255,255,255,0.45);
+            font-size: 10px;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "zustand": "https://esm.sh/zustand@^5.0.9",
+    "date-fns": "https://esm.sh/date-fns@^4.1.0",
+    "dexie": "https://esm.sh/dexie@^4.2.1",
+    "chrono-node": "https://esm.sh/chrono-node@^2.7.5"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
