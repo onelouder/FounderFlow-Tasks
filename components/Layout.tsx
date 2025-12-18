@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../store';
-import { Coffee, Zap } from 'lucide-react';
+import { Coffee, Zap, Volume2, VolumeX } from 'lucide-react';
 
 interface LayoutProps {
   topBar: React.ReactNode;
@@ -11,7 +11,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ topBar, leftRail, centerPanel, inspector, statusBar }) => {
-  const { focus } = useStore();
+  const { focus, soundEnabled, toggleSound } = useStore();
 
   // Simple global timer for status bar
   const [globalTimer, setGlobalTimer] = React.useState("");
@@ -65,9 +65,18 @@ export const Layout: React.FC<LayoutProps> = ({ topBar, leftRail, centerPanel, i
       <div className="h-[18px] shrink-0 border-t border-border0 bg-bg1 flex items-center px-2 z-20 text-[10px] text-text2 font-mono gap-2">
         {statusBar}
         
+        {/* Sound Toggle */}
+        <button 
+            onClick={toggleSound} 
+            className={`ml-auto flex items-center gap-1 hover:text-text1 ${soundEnabled ? 'text-text2' : 'text-text2/50'}`}
+            title={soundEnabled ? "Mute Background Sound" : "Enable Background Sound"}
+        >
+            {soundEnabled ? <Volume2 size={10} /> : <VolumeX size={10} />}
+        </button>
+
         {/* Global Timer Indicator */}
         {globalTimer && (
-            <div className={`ml-auto flex items-center gap-1.5 px-2 font-bold ${focus.phase === 'break' ? 'text-warning' : 'text-accent'}`}>
+            <div className={`flex items-center gap-1.5 px-2 font-bold border-l border-border0 ${focus.phase === 'break' ? 'text-warning' : 'text-accent'}`}>
                 {focus.phase === 'break' ? <Coffee size={10} /> : <Zap size={10} className="animate-pulse" />}
                 {focus.phase === 'break' ? 'BREAK' : 'FOCUS'} {globalTimer}
             </div>

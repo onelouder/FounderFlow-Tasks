@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useStore } from './store';
 import { seedDatabase } from './db';
@@ -8,14 +9,16 @@ import { TaskRow } from './components/TaskRow';
 import { NowCard } from './components/NowCard';
 import { CommandPalette } from './components/CommandPalette';
 import { FocusRitualModal } from './components/FocusRitualModal';
-import { TaskStatus } from './types';
-import { Monitor, Inbox, Clock, Calendar, Archive, Layers } from 'lucide-react';
+import { ProjectManagerModal } from './components/ProjectManagerModal';
+import { FocusAudioPlayer } from './components/FocusAudioPlayer';
+import { TaskStatus, Task } from './types';
+import { Monitor, Inbox, Clock, Calendar, Archive, Layers, FolderCog } from 'lucide-react';
 
 export default function App() {
   const { 
     init, tasks, projects, currentView, setView, compactMode, 
     checkResurfacing, toggleCommandPalette, selectedTaskId, snoozeTask,
-    checkTimer, toggleFocusRitual
+    checkTimer, toggleFocusRitual, toggleProjectManager
   } = useStore();
 
   useEffect(() => {
@@ -48,14 +51,34 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [selectedTaskId]);
 
+  // Sorting Helper
+  const sortTasks = (taskList: Task[]) => {
+      return [...taskList].sort((a, b) => {
+          // Priority first
+          const pA = a.priority || 'P3';
+          const pB = b.priority || 'P3';
+          if (pA !== pB) return pA.localeCompare(pB);
+          
+          // Then updatedAt (recency)
+          return b.updatedAt - a.updatedAt;
+      });
+  };
+
   // Derived State
   const nowTask = tasks.find(t => t.status === TaskStatus.NOW);
-  const nextTasks = tasks.filter(t => t.status === TaskStatus.NEXT).sort((a,b) => (a.priority || 'P3').localeCompare(b.priority || 'P3'));
-  const todayTasks = tasks.filter(t => t.status === TaskStatus.TODAY);
-  const inboxTasks = tasks.filter(t => t.status === TaskStatus.INBOX).sort((a,b) => b.createdAt - a.createdAt);
-  const waitingTasks = tasks.filter(t => t.status === TaskStatus.WAITING || t.status === TaskStatus.SCHEDULED);
-  const weekTasks = tasks.filter(t => t.dueAt && t.dueAt <= (Date.now() + 86400000 * 7));
-  const somedayTasks = tasks.filter(t => t.status === TaskStatus.SOMEDAY);
+  const nextTasks = sortTasks(tasks.filter(t => t.status === TaskStatus.NEXT));
+  const todayTasks = sortTasks(tasks.filter(t => t.status === TaskStatus.TODAY));
+  const inboxTasks = sortTasks(tasks.filter(t => t.status === TaskStatus.INBOX));
+  const waitingTasks = sortTasks(tasks.filter(t => t.status === TaskStatus.WAITING || t.status === TaskStatus.SCHEDULED));
+  
+  // Week view: Tasks due OR starting within next 7 days
+  const weekLimit = Date.now() + 86400000 * 7;
+  const weekTasks = sortTasks(tasks.filter(t => 
+    (t.dueAt && t.dueAt <= weekLimit) || 
+    (t.startAt && t.startAt <= weekLimit)
+  ));
+
+  const somedayTasks = sortTasks(tasks.filter(t => t.status === TaskStatus.SOMEDAY));
   
   const resurfacingCount = tasks.filter(t => t.status === TaskStatus.SCHEDULED && t.startAt && t.startAt < (Date.now() + 86400000)).length;
 
@@ -97,8 +120,8 @@ export default function App() {
     // List Views
     let listToRender = inboxTasks;
     let title = "INBOX";
-    if (currentView === 'waiting') { listToRender = waitingTasks; title = "WAITING"; }
-    if (currentView === 'week') { listToRender = weekTasks; title = "WEEK"; }
+    if (currentView === 'waiting') { listToRender = waitingTasks; title = "WAITING / SCHEDULED"; }
+    if (currentView === 'week') { listToRender = weekTasks; title = "THIS WEEK"; }
     if (currentView === 'someday') { listToRender = somedayTasks; title = "SOMEDAY"; }
 
     return (
@@ -117,6 +140,8 @@ export default function App() {
     <>
       <CommandPalette />
       <FocusRitualModal />
+      <ProjectManagerModal />
+      <FocusAudioPlayer />
       <Layout
         topBar={
           <div className="flex w-full h-full text-[11px]">
@@ -160,14 +185,35 @@ export default function App() {
                 <Archive size={10} /> Someday
              </button>
 
-             <div className="mt-2 px-2 text-text2 text-[10px]">PINNED</div>
+             <div className="mt-2 px-2 flex items-center justify-between text-text2 group">
+                 <span className="text-[10px]">PINNED</span>
+                 <button 
+                    onClick={toggleProjectManager}
+                    className="opacity-50 group-hover:opacity-100 transition-opacity hover:text-accent p-0.5"
+                    title="Manage Projects"
+                 >
+                    <FolderCog size={10} />
+                 </button>
+             </div>
+             
              {projects.filter(p => p.pinned).map(p => (
-                <button key={p.id} className="flex items-center gap-2 px-2 h-[17px] text-text1 hover:bg-bg2 hover:text-text0 text-left">
-                    <span className="text-[10px] text-text2">▸</span>
+                <button 
+                    key={p.id} 
+                    onDoubleClick={toggleProjectManager}
+                    className="flex items-center gap-2 px-2 h-[17px] text-text1 hover:bg-bg2 hover:text-text0 text-left w-full group"
+                    title="Double-click to manage"
+                >
+                    <span className="text-[10px] text-text2 group-hover:text-text1">▸</span>
                     <span className="w-1 h-1 rounded-[1px]" style={{ backgroundColor: p.color || '#555' }}></span>
-                    {p.name}
+                    <span className="truncate">{p.name}</span>
                 </button>
              ))}
+
+             {projects.filter(p => p.pinned).length === 0 && (
+                 <button onClick={toggleProjectManager} className="px-2 py-1 text-text2 italic text-[10px] hover:text-text1 flex items-center gap-1 opacity-70 hover:opacity-100">
+                    + Manage Projects
+                 </button>
+             )}
           </div>
         }
         centerPanel={renderCenter()}

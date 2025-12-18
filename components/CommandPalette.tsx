@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { Search, Monitor, Inbox, Calendar, Clock } from 'lucide-react';
+import { Search, Monitor, Inbox, Calendar, Clock, Folder, Settings } from 'lucide-react';
 
 export const CommandPalette: React.FC = () => {
-  const { showCommandPalette, toggleCommandPalette, setView, setSelectTask, moveToSpotlight, selectedTaskId, toggleCompact } = useStore();
+  const { showCommandPalette, toggleCommandPalette, setView, setSelectTask, moveToSpotlight, selectedTaskId, toggleCompact, toggleProjectManager } = useStore();
   const [query, setQuery] = useState('');
 
   // Close on Escape
@@ -27,8 +27,9 @@ export const CommandPalette: React.FC = () => {
     { label: 'Go to Spotlight', icon: <Monitor size={14} />, action: () => setView('spotlight') },
     { label: 'Go to Inbox', icon: <Inbox size={14} />, action: () => setView('inbox') },
     { label: 'Go to Waiting', icon: <Clock size={14} />, action: () => setView('waiting') },
+    { label: 'Manage Projects', icon: <Folder size={14} />, action: () => toggleProjectManager() },
     { label: 'Set Selected as NOW', icon: <Monitor size={14} />, action: () => selectedTaskId && moveToSpotlight(selectedTaskId, 'now') },
-    { label: 'Toggle Compact Mode', icon: <Search size={14} />, action: () => toggleCompact() },
+    { label: 'Toggle Compact Mode', icon: <Settings size={14} />, action: () => toggleCompact() },
   ];
 
   const filtered = actions.filter(a => a.label.toLowerCase().includes(query.toLowerCase()));

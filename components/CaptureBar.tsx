@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { parseCaptureText, CaptureSegment } from '../utils';
@@ -34,7 +35,7 @@ export const CaptureBar: React.FC = () => {
   const submit = async (targetStatus: 'inbox' | 'next' | 'scheduled') => {
     if (!text.trim()) return;
 
-    const { title, projectId, personId, estimateMinutes, dueAt, startAt } = parseCaptureText(text);
+    const { title, projectId, personId, estimateMinutes, dueAt, startAt, priority } = parseCaptureText(text);
     
     let taskData: any = {
       title,
@@ -43,7 +44,8 @@ export const CaptureBar: React.FC = () => {
       personId,
       estimateMinutes,
       dueAt,
-      startAt
+      startAt,
+      priority
     };
 
     if (targetStatus === 'scheduled') {
@@ -90,6 +92,7 @@ export const CaptureBar: React.FC = () => {
                     if (seg.type === 'due') className = "text-warning";
                     if (seg.type === 'start') className = "text-text1 underline decoration-dotted";
                     if (seg.type === 'estimate') className = "text-accent";
+                    if (seg.type === 'priority') className = "text-danger font-bold";
                     return <span key={i} className={className}>{seg.text}</span>
                 }) : <span className="text-text2">Capture...</span>}
             </div>

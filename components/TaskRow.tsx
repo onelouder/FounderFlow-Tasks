@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Task, TaskStatus } from '../types';
 import { formatRelativeDate } from '../utils';
@@ -38,6 +39,13 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
     ? 'bg-accent/10' 
     : 'hover:bg-bg1';
 
+  const priorityColors = {
+      'P0': 'bg-danger/20 text-danger border-danger/30',
+      'P1': 'bg-warning/20 text-warning border-warning/30',
+      'P2': 'bg-info/20 text-info border-info/30',
+      'P3': 'bg-bg2 text-text2 border-border1',
+  };
+
   return (
     <div 
       onClick={handleSelect}
@@ -55,7 +63,12 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task }) => {
       </button>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 flex items-baseline gap-2 overflow-hidden leading-none">
+      <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden leading-none">
+        {task.priority && task.priority !== 'P3' && (
+            <span className={`text-[8px] font-bold shrink-0 px-1 py-0 rounded-[2px] border ${priorityColors[task.priority]}`}>
+                {task.priority}
+            </span>
+        )}
         <span className={`truncate text-xs ${isDone ? 'text-text2 line-through' : 'text-text0'}`}>
           {task.title}
         </span>

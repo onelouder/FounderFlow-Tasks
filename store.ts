@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Task, Project, AppState, TaskStatus, SnoozeReason, ViewMode, FocusState, FocusPreset, FocusSession, FocusPhase } from './types';
 import { db } from './db';
@@ -26,12 +27,20 @@ interface Actions {
   setView: (view: ViewMode) => void;
   toggleCompact: () => void;
   toggleCommandPalette: () => void;
+  toggleProjectManager: () => void;
+  toggleSound: () => void;
   
   // CRUD
   addTask: (task: Partial<Task>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   
+  // Project Management
+  createProject: (name: string, color: string) => Promise<void>;
+  renameProject: (id: string, newName: string, newColor?: string) => Promise<void>;
+  togglePinProject: (id: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+
   // Logic
   moveToSpotlight: (id: string, target: 'now' | 'next' | 'today') => Promise<void>;
   snoozeTask: (id: string, reason: SnoozeReason, until: number) => Promise<void>;
@@ -57,7 +66,9 @@ export const useStore = create<AppState & Actions>((set, get) => ({
   selectedTaskId: null,
   currentView: 'spotlight',
   showCommandPalette: false,
+  showProjectManager: false,
   compactMode: false,
+  soundEnabled: true, // Default to on
   
   focus: INITIAL_FOCUS_STATE,
   focusSessions: [],
@@ -91,21 +102,37 @@ export const useStore = create<AppState & Actions>((set, get) => ({
       }
     }
 
-    set({ tasks, projects, focusSessions, focus: focusState });
+    // Recover Sound Pref
+    const storedSound = localStorage.getItem('founderflow_sound_enabled');
+    const soundEnabled = storedSound ? JSON.parse(storedSound) : true;
+
+    set({ tasks, projects, focusSessions, focus: focusState, soundEnabled });
   },
 
   setSelectTask: (id) => set({ selectedTaskId: id }),
   setView: (view) => set({ currentView: view }),
   toggleCompact: () => set(state => ({ compactMode: !state.compactMode })),
   toggleCommandPalette: () => set(state => ({ showCommandPalette: !state.showCommandPalette })),
+  toggleProjectManager: () => set(state => ({ showProjectManager: !state.showProjectManager })),
+  
+  toggleSound: () => set(state => {
+      const newVal = !state.soundEnabled;
+      localStorage.setItem('founderflow_sound_enabled', JSON.stringify(newVal));
+      return { soundEnabled: newVal };
+  }),
 
   addTask: async (taskData) => {
+    const now = Date.now();
+    const status = (taskData.startAt && taskData.startAt > now) 
+      ? TaskStatus.SCHEDULED 
+      : (taskData.status || TaskStatus.INBOX);
+
     const newTask: Task = {
       id: generateId(),
       title: taskData.title || 'Untitled',
-      status: taskData.status || TaskStatus.INBOX,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      status: status,
+      createdAt: now,
+      updatedAt: now,
       ...taskData
     };
     await db.tasks.add(newTask);
@@ -113,9 +140,30 @@ export const useStore = create<AppState & Actions>((set, get) => ({
   },
 
   updateTask: async (id, updates) => {
-    await db.tasks.update(id, { ...updates, updatedAt: Date.now() });
+    const { tasks, focus, stopFocusEarly } = get();
+    const existingTask = tasks.find(t => t.id === id);
+    if (!existingTask) return;
+
+    const now = Date.now();
+    let finalUpdates = { ...updates, updatedAt: now };
+
+    // Spotlight Logic Improvement: Auto-defer to SCHEDULED if startAt is in the future
+    if (finalUpdates.startAt && finalUpdates.startAt > now) {
+      finalUpdates.status = TaskStatus.SCHEDULED;
+      
+      // If we are deferring the current NOW task, stop any active focus session
+      if (existingTask.status === TaskStatus.NOW && focus.activeTaskId === id && focus.phase !== 'idle') {
+        stopFocusEarly();
+      }
+    } 
+    // If clearing a future startAt or moving it to the past, bring it back to INBOX if it was SCHEDULED
+    else if ((finalUpdates.startAt === undefined || finalUpdates.startAt <= now) && existingTask.status === TaskStatus.SCHEDULED) {
+      finalUpdates.status = TaskStatus.INBOX;
+    }
+
+    await db.tasks.update(id, finalUpdates);
     set(state => ({
-      tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates, updatedAt: Date.now() } : t)
+      tasks: state.tasks.map(t => t.id === id ? { ...t, ...finalUpdates } : t)
     }));
   },
 
@@ -124,18 +172,61 @@ export const useStore = create<AppState & Actions>((set, get) => ({
     set(state => ({ tasks: state.tasks.filter(t => t.id !== id), selectedTaskId: null }));
   },
 
+  createProject: async (name, color) => {
+      const newProj: Project = { id: generateId(), name, color, pinned: false };
+      await db.projects.add(newProj);
+      set(state => ({ projects: [...state.projects, newProj] }));
+  },
+
+  renameProject: async (id, newName, newColor) => {
+      const { projects, tasks } = get();
+      const project = projects.find(p => p.id === id);
+      if (!project) return;
+      
+      const oldName = project.name;
+      
+      // 1. Update Project Record
+      const updates: Partial<Project> = { name: newName };
+      if (newColor) updates.color = newColor;
+      await db.projects.update(id, updates);
+
+      // 2. Propagate name change to all tasks that used the old name
+      const tasksToUpdate = tasks.filter(t => t.projectId === oldName);
+      
+      // Parallel update in DB
+      await Promise.all(
+          tasksToUpdate.map(t => db.tasks.update(t.id, { projectId: newName, updatedAt: Date.now() }))
+      );
+
+      // 3. Update Store State
+      set(state => ({
+          projects: state.projects.map(p => p.id === id ? { ...p, ...updates } : p),
+          tasks: state.tasks.map(t => t.projectId === oldName ? { ...t, projectId: newName, updatedAt: Date.now() } : t)
+      }));
+  },
+
+  togglePinProject: async (id) => {
+      const { projects } = get();
+      const project = projects.find(p => p.id === id);
+      if (!project) return;
+      await db.projects.update(id, { pinned: !project.pinned });
+      set(state => ({
+          projects: state.projects.map(p => p.id === id ? { ...p, pinned: !p.pinned } : p)
+      }));
+  },
+
+  deleteProject: async (id) => {
+      await db.projects.delete(id);
+      set(state => ({ projects: state.projects.filter(p => p.id !== id) }));
+  },
+
   moveToSpotlight: async (id, target) => {
     const { tasks, updateTask, focus } = get();
     
     // Safety check for timer
     if (focus.phase === 'focus' && focus.activeTaskId !== id && target === 'now') {
-       // We allow moving, but we need to know if we should stop the timer?
-       // Actually, prompt requirement says: "Integrated into the NOW card". 
-       // If we change NOW card, we should probably stop previous focus or switch it.
-       // Current implementation: Alert user.
        if (!confirm("A focus session is running on another task. Stop it and switch?")) return;
-       get().stopFocusEarly(); // Open ritual
-       // We let the move happen, but the user has to handle the ritual
+       get().stopFocusEarly(); 
     }
 
     if (target === 'now') {
@@ -191,27 +282,18 @@ export const useStore = create<AppState & Actions>((set, get) => ({
   toggleFocusRitual: () => {
       const { focus } = get();
       if (focus.phase === 'idle') {
-          // Open Start Ritual
           set({ focus: { ...focus, isRitualOpen: 'start' } });
       } else if (focus.phase === 'focus' || focus.phase === 'break') {
-          // Open Stop Ritual (early stop)
           set({ focus: { ...focus, isRitualOpen: 'stop' } });
       }
-      // If ritual is already open, maybe close it? (Esc handles that)
   },
 
   startFocusSession: async (taskId, preset) => {
       const { tasks, moveToSpotlight } = get();
       const now = Date.now();
       
-      // Auto-promote to NOW if not already
-      // This ensures the timer is visible in the NOW card
       const task = tasks.find(t => t.id === taskId);
       if (task && task.status !== TaskStatus.NOW) {
-          // We bypass the confirm dialog in moveToSpotlight by calling updateTask directly? 
-          // No, better to use the logic but handle the case where we are *starting* the session.
-          // moveToSpotlight has a check `if (focus.phase === 'focus' ...)`
-          // Here focus.phase is 'idle' (usually), so moveToSpotlight will run fine.
           await moveToSpotlight(taskId, 'now');
       }
 
@@ -247,28 +329,23 @@ export const useStore = create<AppState & Actions>((set, get) => ({
   },
 
   completeFocusPhase: () => {
-      // Timer hit 0 naturally
       set(state => ({ focus: { ...state.focus, isRitualOpen: 'stop' } }));
   },
 
   completeBreakPhase: () => {
-     // Break done naturally
      const newFocus: FocusState = { ...INITIAL_FOCUS_STATE, suggestedBreak: false };
      set({ focus: newFocus });
      localStorage.setItem('founderflow_focus_state', JSON.stringify(newFocus));
-     // Could add a notification here or a gentle sound
   },
 
   cancelRitual: () => {
       const { focus } = get();
-      // If we cancelled the STOP ritual, we resume (keep running)
-      // If we cancelled the START ritual, we go back to idle
       set({ focus: { ...focus, isRitualOpen: null } });
   },
 
   finalizeSession: async (outcome) => {
       const { focus, focusSessions, updateTask } = get();
-      if (!focus.startTime || !focus.preset) return; // Should not happen
+      if (!focus.startTime || !focus.preset) return; 
 
       const session: FocusSession = {
           id: generateId(),
@@ -278,27 +355,19 @@ export const useStore = create<AppState & Actions>((set, get) => ({
           plannedMinutes: focus.preset.focusMinutes,
           startedAt: focus.startTime,
           endedAt: Date.now(),
-          completed: !outcome.reason, // If no reason, assume success? Or use logic. 
-          // Actually, if we are in finalizeSession, we are stopping. 
-          // 'completed' usually means "did the timer finish". 
-          // But here we care about "Did I finish the task". 
-          // Let's rely on `outcome` for task success. `completed` is for timer completeness.
-          // For now, let's say if we are finalizing via ritual, we log the outcome.
+          completed: !outcome.reason, 
           outcome
       };
 
-      // Add to DB
       await db.focusSessions.add(session);
       
-      // Update Task if finished
       if (outcome.finishedTask && focus.activeTaskId) {
           await updateTask(focus.activeTaskId, { status: TaskStatus.DONE, completedAt: Date.now() });
       }
 
-      // Reset state
       const nextState: FocusState = {
           ...INITIAL_FOCUS_STATE,
-          suggestedBreak: focus.phase === 'focus' // Suggest break if we just finished focus
+          suggestedBreak: focus.phase === 'focus' 
       };
       
       set({ 

@@ -90,8 +90,12 @@ export interface AppState {
   selectedTaskId: string | null;
   currentView: ViewMode;
   showCommandPalette: boolean;
+  showProjectManager: boolean;
   compactMode: boolean;
   
+  // Preferences
+  soundEnabled: boolean;
+
   // Focus Engine
   focus: FocusState;
   focusSessions: FocusSession[];

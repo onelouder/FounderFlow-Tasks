@@ -1,3 +1,4 @@
+
 import { format, isToday, isTomorrow, isThisYear } from 'date-fns';
 import { TaskStatus } from './types';
 import * as chrono from 'chrono-node';
@@ -54,7 +55,7 @@ export const playNotificationSound = () => {
 
 export interface CaptureSegment {
     text: string;
-    type: 'text' | 'due' | 'start' | 'project' | 'person' | 'estimate';
+    type: 'text' | 'due' | 'start' | 'project' | 'person' | 'estimate' | 'priority';
 }
 
 export interface ParsedCapture {
@@ -64,6 +65,7 @@ export interface ParsedCapture {
     projectId?: string;
     personId?: string;
     estimateMinutes?: number;
+    priority?: 'P0' | 'P1' | 'P2' | 'P3';
     segments: CaptureSegment[];
 }
 
@@ -76,13 +78,15 @@ export const parseCaptureText = (text: string): ParsedCapture => {
     let estimateMinutes: number | undefined;
     let dueAt: number | undefined;
     let startAt: number | undefined;
+    let priority: 'P0' | 'P1' | 'P2' | 'P3' | undefined;
 
-    // 1. Regex Extraction for strict tokens (p:, @, est:)
+    // 1. Regex Extraction for strict tokens (p:, @, est:, !p)
     const regexRules = [
         { regex: /\bp:(\w+)/g, type: 'project' as const, handler: (m: string) => projectId = m },
         { regex: /@(\w+)/g, type: 'person' as const, handler: (m: string) => personId = m },
         { regex: /\best:(\d+)/g, type: 'estimate' as const, handler: (m: string) => estimateMinutes = parseInt(m) },
         { regex: /\b(\d+)m\b/g, type: 'estimate' as const, handler: (m: string) => estimateMinutes = parseInt(m) },
+        { regex: /!(p[0-3])/gi, type: 'priority' as const, handler: (m: string) => priority = m.toUpperCase() as any },
         // Strict due/start tokens
         { regex: /\bdue:([^\s]+)/g, type: 'due' as const, handler: () => {} }, 
         { regex: /\bstart:([^\s]+)/g, type: 'start' as const, handler: () => {} },
@@ -184,6 +188,7 @@ export const parseCaptureText = (text: string): ParsedCapture => {
         estimateMinutes,
         dueAt,
         startAt,
+        priority,
         segments
     };
 };

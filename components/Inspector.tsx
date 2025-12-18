@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { TaskStatus, SnoozeReason } from '../types';
-import { Clock, Trash2 } from 'lucide-react';
+import { Clock, Trash2, ChevronDown } from 'lucide-react';
 import { DateTimePicker } from './DateTimePicker';
 import { ProjectPicker } from './ProjectPicker';
 
@@ -24,6 +24,8 @@ export const Inspector: React.FC = () => {
     snoozeTask(task.id, reason, time);
     setSnoozeOpen(false);
   };
+
+  const priorities: ('P0' | 'P1' | 'P2' | 'P3')[] = ['P0', 'P1', 'P2', 'P3'];
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-1 gap-1 font-sans text-xs">
@@ -67,6 +69,22 @@ export const Inspector: React.FC = () => {
                 projects={projects}
                 placeholder="None"
              />
+         </div>
+
+         <label className="text-text2 text-[10px] pt-0.5">Priority</label>
+         <div className="h-[15px] relative group">
+            <select
+                value={task.priority || 'P3'}
+                onChange={(e) => updateTask(task.id, { priority: e.target.value as any })}
+                className="w-full bg-transparent border-b border-transparent hover:border-border1 text-text1 outline-none appearance-none cursor-pointer h-full text-[11px]"
+            >
+                {priorities.map(p => (
+                    <option key={p} value={p} className="bg-bg1">{p}</option>
+                ))}
+            </select>
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-text2 opacity-50 group-hover:opacity-100">
+                <ChevronDown size={8} />
+            </div>
          </div>
 
          <label className="text-text2 text-[10px] pt-0.5">Due</label>
